@@ -1,27 +1,58 @@
-import { db } from "@/db";
-import { logs, accounts, proxies, tasks } from "@/db/schema";
-import { sql } from "drizzle-orm";
-import { Activity, AlertCircle, Info, Terminal, Play } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { connectDB } from "@/db";
+import { Log } from "@/db/schema";
+import { Terminal, Play } from "lucide-react";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default async function LogsPage() {
-  const allLogs = await db.select({
-    id: logs.id,
-    level: logs.level,
-    message: logs.message,
-    createdAt: logs.createdAt,
-    account: accounts.username,
-    proxy: proxies.address,
-    task: tasks.name,
-  })
-  .from(logs)
-  .leftJoin(accounts, sql`${logs.accountId} = ${accounts.id}`)
-  .leftJoin(proxies, sql`${logs.proxyId} = ${proxies.id}`)
-  .leftJoin(tasks, sql`${logs.taskId} = ${tasks.id}`)
-  .orderBy(sql`${logs.createdAt} DESC`)
-  .limit(100);
+  await connectDB();
+
+  const allLogs = await Log.aggregate<{
+    _id: string;
+    level: string;
+    message: string;
+    createdAt: Date;
+    account?: string;
+    proxy?: string;
+    task?: string;
+  }>([
+    { $sort: { createdAt: -1 } },
+    { $limit: 100 },
+    {
+      $lookup: {
+        from: "accounts",
+        localField: "accountId",
+        foreignField: "_id",
+        as: "accountDoc",
+      },
+    },
+    {
+      $lookup: {
+        from: "proxies",
+        localField: "proxyId",
+        foreignField: "_id",
+        as: "proxyDoc",
+      },
+    },
+    {
+      $lookup: {
+        from: "tasks",
+        localField: "taskId",
+        foreignField: "_id",
+        as: "taskDoc",
+      },
+    },
+    {
+      $project: {
+        level: 1,
+        message: 1,
+        createdAt: 1,
+        account: { $arrayElemAt: ["$accountDoc.username", 0] },
+        proxy: { $arrayElemAt: ["$proxyDoc.address", 0] },
+        task: { $arrayElemAt: ["$taskDoc.name", 0] },
+      },
+    },
+  ]);
 
   return (
     <div className="space-y-6 h-[calc(100vh-4rem)] flex flex-col">
@@ -49,16 +80,16 @@ export default async function LogsPage() {
         
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {allLogs.map((log) => (
-            <div key={log.id} className="flex items-start hover:bg-zinc-900/50 rounded px-2 py-1 transition-colors">
+            <div key={log._id.toString()} className="flex items-start hover:bg-zinc-900/50 rounded px-2 py-1 transition-colors">
               <div className="shrink-0 w-24 text-zinc-600 text-xs mt-0.5">
                 {new Date(log.createdAt).toLocaleTimeString()}
               </div>
               
               <div className={`shrink-0 w-20 font-bold text-xs mt-0.5 ${
-                log.level === 'ERROR' ? 'text-red-500' :
-                log.level === 'WARNING' ? 'text-amber-500' :
-                log.level === 'DEBUG' ? 'text-purple-500' :
-                'text-blue-500'
+                log.level === "ERROR" ? "text-red-500" :
+                log.level === "WARNING" ? "text-amber-500" :
+                log.level === "DEBUG" ? "text-purple-500" :
+                "text-blue-500"
               }`}>
                 [{log.level}]
               </div>
@@ -70,10 +101,10 @@ export default async function LogsPage() {
                   {log.task && `[Task:${log.task}]`}
                 </span>
                 <span className={
-                  log.level === 'ERROR' ? 'text-red-400' :
-                  log.level === 'WARNING' ? 'text-amber-300' :
-                  log.level === 'DEBUG' ? 'text-zinc-400' :
-                  'text-zinc-200'
+                  log.level === "ERROR" ? "text-red-400" :
+                  log.level === "WARNING" ? "text-amber-300" :
+                  log.level === "DEBUG" ? "text-zinc-400" :
+                  "text-zinc-200"
                 }>
                   {log.message}
                 </span>

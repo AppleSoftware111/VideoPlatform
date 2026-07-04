@@ -1,57 +1,88 @@
-import { pgTable, serial, text, varchar, timestamp, integer, boolean, pgEnum } from "drizzle-orm/pg-core";
+import mongoose, { Schema, type InferSchemaType, type Model } from "mongoose";
 
-export const accountStatusEnum = pgEnum("account_status", ["active", "cooldown", "banned", "pending"]);
-export const proxyProtocolEnum = pgEnum("proxy_protocol", ["http", "https", "socks4", "socks5"]);
-export const taskTypeEnum = pgEnum("task_type", ["view", "like", "comment", "subscribe"]);
-export const taskStatusEnum = pgEnum("task_status", ["pending", "running", "completed", "failed", "paused"]);
-export const logLevelEnum = pgEnum("log_level", ["DEBUG", "INFO", "WARNING", "ERROR"]);
+const accountSchema = new Schema(
+  {
+    username: { type: String, required: true },
+    passwordEncrypted: { type: String, required: true },
+    status: {
+      type: String,
+      enum: ["active", "cooldown", "banned", "pending"],
+      default: "pending",
+    },
+    cookies: String,
+    userAgent: String,
+    healthScore: { type: Number, default: 100 },
+    lastUsedAt: Date,
+  },
+  { timestamps: { createdAt: true, updatedAt: false } },
+);
 
-export const accounts = pgTable("accounts", {
-  id: serial("id").primaryKey(),
-  username: varchar("username", { length: 255 }).notNull(),
-  passwordEncrypted: text("password_encrypted").notNull(),
-  status: accountStatusEnum("status").default("pending").notNull(),
-  cookies: text("cookies"), // JSON string
-  userAgent: text("user_agent"),
-  healthScore: integer("health_score").default(100),
-  lastUsedAt: timestamp("last_used_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+const proxySchema = new Schema(
+  {
+    protocol: {
+      type: String,
+      enum: ["http", "https", "socks4", "socks5"],
+      default: "http",
+    },
+    address: { type: String, required: true },
+    port: { type: Number, required: true },
+    username: String,
+    password: String,
+    isActive: { type: Boolean, default: true },
+    failCount: { type: Number, default: 0 },
+    successRate: { type: Number, default: 100 },
+    lastTestedAt: Date,
+  },
+  { timestamps: { createdAt: true, updatedAt: false } },
+);
 
-export const proxies = pgTable("proxies", {
-  id: serial("id").primaryKey(),
-  protocol: proxyProtocolEnum("protocol").default("http").notNull(),
-  address: varchar("address", { length: 255 }).notNull(),
-  port: integer("port").notNull(),
-  username: varchar("username", { length: 255 }),
-  password: varchar("password", { length: 255 }),
-  isActive: boolean("is_active").default(true),
-  failCount: integer("fail_count").default(0),
-  successRate: integer("success_rate").default(100),
-  lastTestedAt: timestamp("last_tested_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+const taskSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    type: {
+      type: String,
+      enum: ["view", "like", "comment", "subscribe"],
+      required: true,
+    },
+    targetUrl: { type: String, required: true },
+    desiredCount: { type: Number, required: true },
+    currentCount: { type: Number, default: 0 },
+    status: {
+      type: String,
+      enum: ["pending", "running", "completed", "failed", "paused"],
+      default: "pending",
+    },
+    config: String,
+  },
+  { timestamps: true },
+);
 
-export const tasks = pgTable("tasks", {
-  id: serial("id").primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
-  type: taskTypeEnum("type").notNull(),
-  targetUrl: text("target_url").notNull(),
-  desiredCount: integer("desired_count").notNull(),
-  currentCount: integer("current_count").default(0).notNull(),
-  status: taskStatusEnum("status").default("pending").notNull(),
-  config: text("config"), // JSON configuration (e.g., watch time, interaction delays)
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+const logSchema = new Schema(
+  {
+    taskId: { type: Schema.Types.ObjectId, ref: "Task" },
+    accountId: { type: Schema.Types.ObjectId, ref: "Account" },
+    proxyId: { type: Schema.Types.ObjectId, ref: "Proxy" },
+    level: {
+      type: String,
+      enum: ["DEBUG", "INFO", "WARNING", "ERROR"],
+      default: "INFO",
+    },
+    message: { type: String, required: true },
+    metadata: String,
+  },
+  { timestamps: { createdAt: true, updatedAt: false } },
+);
 
-export const logs = pgTable("logs", {
-  id: serial("id").primaryKey(),
-  taskId: integer("task_id").references(() => tasks.id),
-  accountId: integer("account_id").references(() => accounts.id),
-  proxyId: integer("proxy_id").references(() => proxies.id),
-  level: logLevelEnum("level").default("INFO").notNull(),
-  message: text("message").notNull(),
-  metadata: text("metadata"), // JSON
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export type Account = InferSchemaType<typeof accountSchema> & { _id: mongoose.Types.ObjectId };
+export type Proxy = InferSchemaType<typeof proxySchema> & { _id: mongoose.Types.ObjectId };
+export type Task = InferSchemaType<typeof taskSchema> & { _id: mongoose.Types.ObjectId };
+export type Log = InferSchemaType<typeof logSchema> & { _id: mongoose.Types.ObjectId };
+
+export const Account =
+  (mongoose.models.Account as Model<Account>) ?? mongoose.model<Account>("Account", accountSchema);
+export const Proxy =
+  (mongoose.models.Proxy as Model<Proxy>) ?? mongoose.model<Proxy>("Proxy", proxySchema);
+export const Task =
+  (mongoose.models.Task as Model<Task>) ?? mongoose.model<Task>("Task", taskSchema);
+export const Log =
+  (mongoose.models.Log as Model<Log>) ?? mongoose.model<Log>("Log", logSchema);

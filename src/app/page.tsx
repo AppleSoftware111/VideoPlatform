@@ -1,34 +1,54 @@
-import { db } from "@/db";
-import { accounts, proxies, tasks, logs } from "@/db/schema";
-import { sql } from "drizzle-orm";
+import { connectDB } from "@/db";
+import { Account, Proxy, Task, Log } from "@/db/schema";
 import { Activity, Users, Shield, Zap, TrendingUp, CheckCircle, XCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  const [accountsCount] = await db.select({ count: sql<number>`count(*)` }).from(accounts);
-  const [activeProxies] = await db.select({ count: sql<number>`count(*)` }).from(proxies).where(sql`is_active = true`);
-  const [runningTasks] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(sql`status = 'running'`);
-  const [totalViews] = await db.select({ sum: sql<number>`sum(current_count)` }).from(tasks).where(sql`type = 'view'`);
+  await connectDB();
 
-  const recentLogs = await db.select({
-    id: logs.id,
-    message: logs.message,
-    level: logs.level,
-    createdAt: logs.createdAt,
-    account: accounts.username,
-  })
-  .from(logs)
-  .leftJoin(accounts, sql`${logs.accountId} = ${accounts.id}`)
-  .orderBy(sql`${logs.createdAt} DESC`)
-  .limit(5);
+  const [accountsCount, activeProxies, runningTasks, totalViews, recentLogs] = await Promise.all([
+    Account.countDocuments(),
+    Proxy.countDocuments({ isActive: true }),
+    Task.countDocuments({ status: "running" }),
+    Task.aggregate<{ total: number }>([
+      { $match: { type: "view" } },
+      { $group: { _id: null, total: { $sum: "$currentCount" } } },
+    ]),
+    Log.aggregate<{
+      _id: string;
+      message: string;
+      level: string;
+      createdAt: Date;
+      account?: string;
+    }>([
+      { $sort: { createdAt: -1 } },
+      { $limit: 5 },
+      {
+        $lookup: {
+          from: "accounts",
+          localField: "accountId",
+          foreignField: "_id",
+          as: "accountDoc",
+        },
+      },
+      {
+        $project: {
+          message: 1,
+          level: 1,
+          createdAt: 1,
+          account: { $arrayElemAt: ["$accountDoc.username", 0] },
+        },
+      },
+    ]),
+  ]);
 
   const stats = [
-    { name: "Active Accounts", value: accountsCount?.count || 0, icon: Users, color: "text-blue-400", bg: "bg-blue-400/10" },
-    { name: "Healthy Proxies", value: activeProxies?.count || 0, icon: Shield, color: "text-emerald-400", bg: "bg-emerald-400/10" },
-    { name: "Running Workflows", value: runningTasks?.count || 0, icon: Zap, color: "text-amber-400", bg: "bg-amber-400/10" },
-    { name: "Total Views Delivered", value: totalViews?.sum || 0, icon: TrendingUp, color: "text-indigo-400", bg: "bg-indigo-400/10" },
+    { name: "Active Accounts", value: accountsCount, icon: Users, color: "text-blue-400", bg: "bg-blue-400/10" },
+    { name: "Healthy Proxies", value: activeProxies, icon: Shield, color: "text-emerald-400", bg: "bg-emerald-400/10" },
+    { name: "Running Workflows", value: runningTasks, icon: Zap, color: "text-amber-400", bg: "bg-amber-400/10" },
+    { name: "Total Views Delivered", value: totalViews[0]?.total ?? 0, icon: TrendingUp, color: "text-indigo-400", bg: "bg-indigo-400/10" },
   ];
 
   return (
@@ -59,17 +79,17 @@ export default async function Dashboard() {
           <h2 className="text-lg font-medium text-white mb-4">Recent Activity</h2>
           <div className="space-y-4">
             {recentLogs.map((log) => (
-              <div key={log.id} className="flex items-start space-x-3">
-                {log.level === 'INFO' && <Activity className="h-5 w-5 text-blue-400 mt-0.5" />}
-                {log.level === 'WARNING' && <XCircle className="h-5 w-5 text-amber-400 mt-0.5" />}
-                {log.level === 'ERROR' && <XCircle className="h-5 w-5 text-red-400 mt-0.5" />}
-                {log.level === 'DEBUG' && <CheckCircle className="h-5 w-5 text-emerald-400 mt-0.5" />}
+              <div key={log._id.toString()} className="flex items-start space-x-3">
+                {log.level === "INFO" && <Activity className="h-5 w-5 text-blue-400 mt-0.5" />}
+                {log.level === "WARNING" && <XCircle className="h-5 w-5 text-amber-400 mt-0.5" />}
+                {log.level === "ERROR" && <XCircle className="h-5 w-5 text-red-400 mt-0.5" />}
+                {log.level === "DEBUG" && <CheckCircle className="h-5 w-5 text-emerald-400 mt-0.5" />}
                 <div>
                   <p className="text-sm text-zinc-300">
-                    <span className="font-medium text-indigo-400">[{log.account || 'System'}]</span> {log.message}
+                    <span className="font-medium text-indigo-400">[{log.account || "System"}]</span> {log.message}
                   </p>
                   <p className="text-xs text-zinc-500 mt-1">
-                    {log.createdAt ? formatDistanceToNow(new Date(log.createdAt), { addSuffix: true }) : ''}
+                    {log.createdAt ? formatDistanceToNow(new Date(log.createdAt), { addSuffix: true }) : ""}
                   </p>
                 </div>
               </div>
@@ -89,7 +109,7 @@ export default async function Dashboard() {
                 <span className="text-sm font-medium text-emerald-400">98%</span>
               </div>
               <div className="w-full bg-zinc-800 rounded-full h-2">
-                <div className="bg-emerald-500 h-2 rounded-full" style={{ width: '98%' }}></div>
+                <div className="bg-emerald-500 h-2 rounded-full" style={{ width: "98%" }}></div>
               </div>
             </div>
             <div>
@@ -98,7 +118,7 @@ export default async function Dashboard() {
                 <span className="text-sm font-medium text-amber-400">85%</span>
               </div>
               <div className="w-full bg-zinc-800 rounded-full h-2">
-                <div className="bg-amber-500 h-2 rounded-full" style={{ width: '85%' }}></div>
+                <div className="bg-amber-500 h-2 rounded-full" style={{ width: "85%" }}></div>
               </div>
             </div>
             <div>
@@ -107,7 +127,7 @@ export default async function Dashboard() {
                 <span className="text-sm font-medium text-emerald-400">100%</span>
               </div>
               <div className="w-full bg-zinc-800 rounded-full h-2">
-                <div className="bg-emerald-500 h-2 rounded-full" style={{ width: '100%' }}></div>
+                <div className="bg-emerald-500 h-2 rounded-full" style={{ width: "100%" }}></div>
               </div>
             </div>
           </div>

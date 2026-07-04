@@ -1,12 +1,13 @@
-import { db } from "@/db";
-import { accounts } from "@/db/schema";
+import { connectDB } from "@/db";
+import { Account } from "@/db/schema";
 import { Users, Search, Filter, ShieldCheck, ShieldAlert, AlertTriangle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default async function AccountsPage() {
-  const allAccounts = await db.select().from(accounts).orderBy(accounts.createdAt);
+  await connectDB();
+  const allAccounts = await Account.find().sort({ createdAt: 1 });
 
   return (
     <div className="space-y-6">
@@ -57,22 +58,22 @@ export default async function AccountsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    {account.status === 'active' && (
+                    {account.status === "active" && (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400">
                         Active
                       </span>
                     )}
-                    {account.status === 'cooldown' && (
+                    {account.status === "cooldown" && (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400">
                         Cooldown
                       </span>
                     )}
-                    {account.status === 'banned' && (
+                    {account.status === "banned" && (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400">
                         Banned
                       </span>
                     )}
-                    {account.status === 'pending' && (
+                    {account.status === "pending" && (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-500/10 text-zinc-400">
                         Pending
                       </span>
@@ -93,7 +94,7 @@ export default async function AccountsPage() {
                   <td className="px-6 py-4">
                     {account.lastUsedAt 
                       ? formatDistanceToNow(new Date(account.lastUsedAt), { addSuffix: true })
-                      : 'Never'}
+                      : "Never"}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button className="text-indigo-400 hover:text-indigo-300 font-medium">Edit</button>

@@ -1,18 +1,19 @@
-import { db } from "@/db";
-import { tasks } from "@/db/schema";
+import { connectDB } from "@/db";
+import { Task } from "@/db/schema";
 import { Play, Pause, Plus, MoreVertical, PlayCircle, Eye, MessageSquare, ThumbsUp, Video } from "lucide-react";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default async function TasksPage() {
-  const allTasks = await db.select().from(tasks).orderBy(tasks.createdAt);
+  await connectDB();
+  const allTasks = await Task.find().sort({ createdAt: 1 });
 
   const getTaskIcon = (type: string | null) => {
     switch (type) {
-      case 'view': return <Eye className="h-5 w-5 text-blue-400" />;
-      case 'like': return <ThumbsUp className="h-5 w-5 text-emerald-400" />;
-      case 'comment': return <MessageSquare className="h-5 w-5 text-amber-400" />;
-      case 'subscribe': return <Video className="h-5 w-5 text-red-400" />;
+      case "view": return <Eye className="h-5 w-5 text-blue-400" />;
+      case "like": return <ThumbsUp className="h-5 w-5 text-emerald-400" />;
+      case "comment": return <MessageSquare className="h-5 w-5 text-amber-400" />;
+      case "subscribe": return <Video className="h-5 w-5 text-red-400" />;
       default: return <PlayCircle className="h-5 w-5 text-zinc-400" />;
     }
   };
@@ -44,17 +45,17 @@ export default async function TasksPage() {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                {task.status === 'running' && (
+                {task.status === "running" && (
                   <span className="flex h-2 w-2 relative">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                   </span>
                 )}
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                  task.status === 'running' ? 'bg-emerald-500/10 text-emerald-400' :
-                  task.status === 'completed' ? 'bg-blue-500/10 text-blue-400' :
-                  task.status === 'paused' ? 'bg-amber-500/10 text-amber-400' :
-                  'bg-zinc-800 text-zinc-400'
+                  task.status === "running" ? "bg-emerald-500/10 text-emerald-400" :
+                  task.status === "completed" ? "bg-blue-500/10 text-blue-400" :
+                  task.status === "paused" ? "bg-amber-500/10 text-amber-400" :
+                  "bg-zinc-800 text-zinc-400"
                 }`}>
                   {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
                 </span>
@@ -79,19 +80,19 @@ export default async function TasksPage() {
               </div>
               <div className="w-full bg-zinc-800 rounded-full h-2">
                 <div 
-                  className={`h-2 rounded-full ${task.status === 'running' ? 'bg-indigo-500' : 'bg-zinc-500'}`}
+                  className={`h-2 rounded-full ${task.status === "running" ? "bg-indigo-500" : "bg-zinc-500"}`}
                   style={{ width: `${Math.min(100, (task.currentCount / task.desiredCount) * 100)}%` }}
                 ></div>
               </div>
             </div>
 
             <div className="flex space-x-2 pt-4 border-t border-zinc-800">
-              {task.status === 'running' ? (
+              {task.status === "running" ? (
                 <button className="flex-1 flex items-center justify-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors border border-zinc-700">
                   <Pause className="h-4 w-4" />
                   <span>Pause</span>
                 </button>
-              ) : task.status === 'completed' ? (
+              ) : task.status === "completed" ? (
                  <button className="flex-1 flex items-center justify-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors border border-zinc-700">
                  <Play className="h-4 w-4" />
                  <span>Restart</span>

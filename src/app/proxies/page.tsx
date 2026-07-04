@@ -1,12 +1,12 @@
-import { db } from "@/db";
-import { proxies } from "@/db/schema";
-import { Shield, Plus, RefreshCw, Server, Search } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { connectDB } from "@/db";
+import { Proxy } from "@/db/schema";
+import { Shield, Plus, RefreshCw, Server } from "lucide-react";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default async function ProxiesPage() {
-  const allProxies = await db.select().from(proxies).orderBy(proxies.createdAt);
+  await connectDB();
+  const allProxies = await Proxy.find().sort({ createdAt: 1 });
 
   return (
     <div className="space-y-6">
@@ -43,7 +43,7 @@ export default async function ProxiesPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-zinc-400">Active / Healthy</p>
-              <p className="text-2xl font-bold text-white mt-1">{allProxies.filter(p => p.isActive).length}</p>
+              <p className="text-2xl font-bold text-white mt-1">{allProxies.filter((p) => p.isActive).length}</p>
             </div>
             <div className="p-3 bg-emerald-500/10 rounded-lg">
               <Shield className="h-6 w-6 text-emerald-400" />
@@ -101,7 +101,7 @@ export default async function ProxiesPage() {
                     <div className="flex items-center space-x-2">
                       <div className="w-16 bg-zinc-800 rounded-full h-1.5">
                         <div 
-                          className={`h-1.5 rounded-full ${(proxy.successRate || 0) > 80 ? 'bg-emerald-500' : (proxy.successRate || 0) > 40 ? 'bg-amber-500' : 'bg-red-500'}`} 
+                          className={`h-1.5 rounded-full ${(proxy.successRate || 0) > 80 ? "bg-emerald-500" : (proxy.successRate || 0) > 40 ? "bg-amber-500" : "bg-red-500"}`} 
                           style={{ width: `${proxy.successRate || 0}%` }}
                         />
                       </div>
