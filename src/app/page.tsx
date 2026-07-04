@@ -1,12 +1,25 @@
-import { connectDB } from "@/db";
+import { tryConnectDB } from "@/db";
 import { Account, Proxy, Task, Log } from "@/db/schema";
+import { DbSetupBanner } from "@/components/DbSetupBanner";
 import { Activity, Users, Shield, Zap, TrendingUp, CheckCircle, XCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  await connectDB();
+  const db = await tryConnectDB();
+
+  if (!db.ok) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">System Overview</h1>
+          <p className="text-zinc-400 mt-1">Real-time performance metrics and execution status.</p>
+        </div>
+        <DbSetupBanner error={db.error} />
+      </div>
+    );
+  }
 
   const [accountsCount, activeProxies, runningTasks, totalViews, recentLogs] = await Promise.all([
     Account.countDocuments(),
